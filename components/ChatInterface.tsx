@@ -71,7 +71,20 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
+      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      if (!apiKey) {
+        setMessages((prev) => [
+          ...prev,
+          { 
+            id: (Date.now() + 1).toString(), 
+            role: 'model', 
+            text: '⚠️ **Erro de Configuração:** A chave da API não foi encontrada.\n\nComo você está hospedando na Vercel, você precisa configurar a variável de ambiente correta:\n1. Vá no painel do seu projeto na Vercel.\n2. Acesse **Settings** > **Environment Variables**.\n3. Adicione uma nova variável com o nome exato: `NEXT_PUBLIC_GEMINI_API_KEY` e cole sua chave do Google Gemini como valor.\n4. **Muito importante:** Após adicionar, você precisa fazer um novo deploy (Redeploy) para que a variável seja injetada no código.' 
+          },
+        ]);
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       let responseMessage: Message = { id: (Date.now() + 1).toString(), role: 'model' };
 
       if (agent.type === 'text') {
@@ -152,11 +165,15 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
       }
 
       setMessages((prev) => [...prev, responseMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating content:', error);
+      let errorMessage = 'Ocorreu um erro ao processar sua solicitação.';
+      if (error.message) {
+        errorMessage += `\n\n**Detalhes do erro:** ${error.message}`;
+      }
       setMessages((prev) => [
         ...prev,
-        { id: Date.now().toString(), role: 'model', text: 'Ocorreu um erro ao processar sua solicitação.' },
+        { id: Date.now().toString(), role: 'model', text: errorMessage },
       ]);
     } finally {
       setIsLoading(false);
