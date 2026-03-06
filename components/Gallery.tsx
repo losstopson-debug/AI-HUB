@@ -14,15 +14,15 @@ export default function Gallery({ seed, count }: GalleryProps) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {images.map((img) => (
-        <div key={img.id} className="relative aspect-square rounded-xl overflow-hidden bg-zinc-100 border border-zinc-200 group">
+        <div key={img.id} className="relative aspect-square rounded-xl overflow-hidden bg-zinc-100 border border-zinc-200/50 group shadow-sm">
           <Image
             src={img.url}
             alt={`Example ${img.id + 1}`}
             fill
-            className="object-cover group-hover:scale-110 transition-transform duration-500"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
         </div>
       ))}
     </div>

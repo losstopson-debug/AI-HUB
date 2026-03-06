@@ -98,14 +98,13 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
         responseMessage.text = response.text;
       } else if (agent.type === 'image-gen') {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-image-preview',
+          model: 'gemini-2.5-flash-image',
           contents: {
             parts: [{ text: input }],
           },
           config: {
             imageConfig: {
               aspectRatio: '1:1',
-              imageSize: '1K',
             },
           },
         });
@@ -182,15 +181,17 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="flex-grow overflow-y-auto p-4 space-y-6">
+    <div className="flex flex-col h-full bg-white relative">
+      <div className="flex-grow overflow-y-auto p-6 space-y-8">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-zinc-400">
-            <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mb-4">
-              <Bot className="w-8 h-8 text-zinc-500" />
+            <div className="w-20 h-20 bg-zinc-50 border border-zinc-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+              <Bot className="w-10 h-10 text-zinc-400" />
             </div>
-            <p className="text-center max-w-sm">
-              Olá! Sou o {agent.name}. Como posso ajudar você hoje?
+            <p className="text-center max-w-md text-zinc-500 text-lg font-display">
+              Olá! Sou o <span className="font-semibold text-zinc-700">{agent.name}</span>.
+              <br />
+              <span className="text-sm mt-2 block">Como posso ajudar você hoje?</span>
             </p>
           </div>
         ) : (
@@ -200,26 +201,28 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl p-4 ${
+                className={`max-w-[85%] rounded-2xl p-5 shadow-sm ${
                   msg.role === 'user'
                     ? 'bg-zinc-900 text-white rounded-br-sm'
-                    : 'bg-zinc-100 text-zinc-900 rounded-bl-sm'
+                    : 'bg-white border border-zinc-200 text-zinc-800 rounded-bl-sm'
                 }`}
               >
                 {msg.imageUrl && (
-                  <img
-                    src={msg.imageUrl}
-                    alt="Uploaded or Generated"
-                    className="max-w-full rounded-xl mb-3 border border-zinc-200"
-                  />
+                  <div className="relative rounded-xl overflow-hidden mb-4 border border-zinc-200/20 bg-zinc-100">
+                    <img
+                      src={msg.imageUrl}
+                      alt="Uploaded or Generated"
+                      className="w-full h-auto object-contain max-h-[400px]"
+                    />
+                  </div>
                 )}
                 {msg.text && (
-                  <div className={`prose prose-sm max-w-none ${msg.role === 'user' ? 'prose-invert' : ''}`}>
+                  <div className={`prose prose-sm max-w-none ${msg.role === 'user' ? 'prose-invert' : 'prose-zinc'}`}>
                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </div>
                 )}
                 {msg.audioUrl && (
-                  <audio controls className="mt-3 w-full max-w-xs">
+                  <audio controls className="mt-4 w-full max-w-sm rounded-full bg-zinc-100">
                     <source src={msg.audioUrl} type="audio/wav" />
                     Seu navegador não suporta o elemento de áudio.
                   </audio>
@@ -230,33 +233,35 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
         )}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-zinc-100 rounded-2xl rounded-bl-sm p-4 flex items-center gap-2 text-zinc-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Processando...</span>
+            <div className="bg-white border border-zinc-200 rounded-2xl rounded-bl-sm p-4 flex items-center gap-3 text-zinc-500 shadow-sm">
+              <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+              <span className="text-sm font-medium">Processando...</span>
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t border-zinc-200 bg-white">
+      <div className="p-4 sm:p-6 border-t border-zinc-100 bg-white/80 backdrop-blur-md">
         {imagePreview && (
-          <div className="mb-3 relative inline-block">
-            <img src={imagePreview} alt="Preview" className="h-20 rounded-lg border border-zinc-200" />
+          <div className="mb-4 relative inline-block">
+            <div className="relative rounded-xl overflow-hidden border border-zinc-200 shadow-sm">
+              <img src={imagePreview} alt="Preview" className="h-24 w-auto object-cover" />
+            </div>
             <button
               onClick={() => {
                 setImagePreview(null);
                 setSelectedImage(null);
               }}
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+              className="absolute -top-2 -right-2 bg-zinc-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md hover:bg-zinc-800 transition-colors"
             >
               ×
             </button>
           </div>
         )}
-        <form onSubmit={handleSubmit} className="flex items-end gap-2">
+        <form onSubmit={handleSubmit} className="flex items-end gap-3 max-w-4xl mx-auto">
           {agent.type === 'image-edit' && (
-            <label className="cursor-pointer p-3 text-zinc-500 hover:bg-zinc-100 rounded-xl transition-colors">
+            <label className="cursor-pointer p-3.5 text-zinc-500 bg-zinc-50 border border-zinc-200 hover:bg-zinc-100 rounded-xl transition-colors shadow-sm">
               <ImageIcon className="w-5 h-5" />
               <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
             </label>
@@ -274,7 +279,7 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
                   ? 'Digite o texto para ser narrado...'
                   : 'Digite sua mensagem...'
               }
-              className="w-full bg-zinc-100 border-transparent focus:bg-white focus:border-zinc-300 focus:ring-0 rounded-2xl py-3 px-4 resize-none h-12 min-h-[48px] max-h-32 text-zinc-900 placeholder-zinc-500"
+              className="w-full bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-zinc-300 focus:ring-0 rounded-xl py-3.5 px-5 resize-none h-[52px] min-h-[52px] max-h-32 text-zinc-900 placeholder-zinc-400 shadow-sm transition-all"
               rows={1}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -287,7 +292,7 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
           <button
             type="submit"
             disabled={isLoading || (!input.trim() && !selectedImage)}
-            className="p-3 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-3.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center min-w-[52px]"
           >
             <Send className="w-5 h-5" />
           </button>
