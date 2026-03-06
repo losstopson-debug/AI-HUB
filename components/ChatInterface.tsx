@@ -70,6 +70,25 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
     setImagePreview(null);
     setIsLoading(true);
 
+    const executeWithRetry = async <T,>(operation: () => Promise<T>, maxRetries = 3): Promise<T> => {
+      let lastError: any;
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          return await operation();
+        } catch (error: any) {
+          lastError = error;
+          // Check if it's a 503 error or rate limit
+          if (error?.status === 503 || error?.message?.includes('503') || error?.message?.includes('high demand') || error?.status === 429) {
+            console.warn(`API busy (attempt ${i + 1}/${maxRetries}). Retrying in ${Math.pow(2, i)}s...`);
+            await new Promise((resolve) => setTimeout(resolve, Math.pow(2, i) * 1000));
+            continue;
+          }
+          throw error; // If it's not a retryable error, throw immediately
+        }
+      }
+      throw lastError;
+    };
+
     try {
       const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
       if (!apiKey) {
@@ -88,26 +107,26 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
       let responseMessage: Message = { id: (Date.now() + 1).toString(), role: 'model' };
 
       if (agent.type === 'text') {
-        const response = await ai.models.generateContent({
+        const response = await executeWithRetry(() => ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: input,
+          contents: userMessage.text || '',
           config: {
             systemInstruction: agent.systemInstruction,
           },
-        });
+        }));
         responseMessage.text = response.text;
       } else if (agent.type === 'image-gen') {
-        const response = await ai.models.generateContent({
+        const response = await executeWithRetry(() => ai.models.generateContent({
           model: 'gemini-2.5-flash-image',
           contents: {
-            parts: [{ text: input }],
+            parts: [{ text: userMessage.text || '' }],
           },
           config: {
             imageConfig: {
               aspectRatio: '1:1',
             },
           },
-        });
+        }));
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) {
@@ -118,7 +137,7 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
         }
       } else if (agent.type === 'image-edit' && selectedImage) {
         const base64Data = await fileToBase64(selectedImage);
-        const response = await ai.models.generateContent({
+        const response = await executeWithRetry(() => ai.models.generateContent({
           model: 'gemini-2.5-flash-image',
           contents: {
             parts: [
@@ -129,11 +148,11 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
                 },
               },
               {
-                text: input || 'Edite esta imagem.',
+                text: userMessage.text || 'Edite esta imagem.',
               },
             ],
           },
-        });
+        }));
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) {
@@ -143,9 +162,9 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
           }
         }
       } else if (agent.type === 'tts') {
-        const response = await ai.models.generateContent({
+        const response = await executeWithRetry(() => ai.models.generateContent({
           model: 'gemini-2.5-flash-preview-tts',
-          contents: [{ parts: [{ text: input }] }],
+          contents: [{ parts: [{ text: userMessage.text || '' }] }],
           config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: {
@@ -154,7 +173,7 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
               },
             },
           },
-        });
+        }));
 
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (base64Audio) {
@@ -167,9 +186,13 @@ export default function ChatInterface({ agent }: { agent: Agent }) {
     } catch (error: any) {
       console.error('Error generating content:', error);
       let errorMessage = 'Ocorreu um erro ao processar sua solicitação.';
-      if (error.message) {
+      
+      if (error?.status === 503 || error?.message?.includes('503') || error?.message?.includes('high demand')) {
+        errorMessage = '⚠️ **Serviço temporariamente indisponível:** O modelo de IA está com alta demanda no momento. Por favor, aguarde alguns instantes e tente novamente.';
+      } else if (error.message) {
         errorMessage += `\n\n**Detalhes do erro:** ${error.message}`;
       }
+      
       setMessages((prev) => [
         ...prev,
         { id: Date.now().toString(), role: 'model', text: errorMessage },
